@@ -1,0 +1,155 @@
+# Task Manager - Product Requirements Document
+
+## Overview
+
+A simple task management API that allows users to create, read, update, and delete tasks. This serves as a foundation for a larger productivity application.
+
+## Problem Statement
+
+Users need a straightforward way to track their tasks and todos. Current solutions are either too complex or don't provide the API access needed for custom integrations.
+
+## Goals
+
+- Provide a clean REST API for task management
+- Support basic CRUD operations
+- Ensure data validation and error handling
+- Create a foundation for future features
+
+## Non-Goals (Out of Scope)
+
+- User authentication (will be added in a future phase)
+- Task categories or tags
+- Due dates and reminders
+- Collaboration features
+
+## User Stories
+
+### US-001: Initialize project structure
+**Priority:** 1 (Critical)
+
+As a developer, I want a clean project structure so that I can build features on a solid foundation.
+
+**Acceptance Criteria:**
+- [ ] Project has standard directory structure
+- [ ] Package manager is initialized
+- [ ] Basic configuration files are in place
+
+**Technical Notes:**
+Use industry-standard conventions for the chosen tech stack.
+
+---
+
+### US-002: Create task data model
+**Priority:** 1 (Critical)
+
+As a developer, I want a task data model so that I can store and retrieve tasks.
+
+**Acceptance Criteria:**
+- [ ] Task has id, title, description, status, and createdAt fields
+- [ ] Status can be 'todo', 'in-progress', or 'done'
+- [ ] Model includes validation for required fields
+
+---
+
+### US-003: Add task creation endpoint
+**Priority:** 2 (High)
+
+As a user, I want to create new tasks so that I can track my work.
+
+**Acceptance Criteria:**
+- [ ] POST /tasks creates a new task
+- [ ] Returns 201 with created task on success
+- [ ] Returns 400 with validation errors on invalid input
+
+**Technical Notes:**
+Validate that title is not empty.
+
+---
+
+### US-004: Add task listing endpoint
+**Priority:** 2 (High)
+
+As a user, I want to see all my tasks so that I can review my workload.
+
+**Acceptance Criteria:**
+- [ ] GET /tasks returns all tasks
+- [ ] Tasks are sorted by createdAt descending
+- [ ] Response includes total count
+
+---
+
+### US-005: Add task update endpoint
+**Priority:** 2 (High)
+
+As a user, I want to update tasks so that I can change their status or details.
+
+**Acceptance Criteria:**
+- [ ] PUT /tasks/:id updates an existing task
+- [ ] Returns 200 with updated task on success
+- [ ] Returns 404 if task not found
+
+---
+
+### US-006: Add task deletion endpoint
+**Priority:** 3 (Medium)
+
+As a user, I want to delete tasks so that I can remove completed or irrelevant items.
+
+**Acceptance Criteria:**
+- [ ] DELETE /tasks/:id removes a task
+- [ ] Returns 204 on success
+- [ ] Returns 404 if task not found
+
+---
+
+### US-007: Add basic test suite
+**Priority:** 3 (Medium)
+
+As a developer, I want tests so that I can verify the API works correctly.
+
+**Acceptance Criteria:**
+- [ ] Tests cover all CRUD operations
+- [ ] Tests verify error handling
+- [ ] All tests pass
+
+**Technical Notes:**
+Use appropriate testing framework for the tech stack.
+
+---
+
+## Technical Considerations
+
+### Architecture
+Simple REST API with in-memory storage initially. Can be extended to use a database in the future.
+
+### Dependencies
+- Web framework appropriate for the chosen language
+- Testing framework
+- Validation library (if needed)
+
+### Data Model
+```
+Task {
+  id: string (UUID)
+  title: string (required)
+  description: string (optional)
+  status: enum ['todo', 'in-progress', 'done']
+  createdAt: datetime
+  updatedAt: datetime
+}
+```
+
+## Success Metrics
+
+- All API endpoints return correct responses
+- All tests pass
+- Code follows best practices for the language/framework
+
+## Open Questions
+
+- Which tech stack should be used? (Node.js, Python, Go, etc.)
+- Should we use an ORM or raw queries when adding database support?
+
+## Git Branch
+
+**Branch Name:** `ralph/task-manager`

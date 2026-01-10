@@ -1,0 +1,24 @@
+{
+  "project": "my-project",
+  "git": {
+    "strategy": "single-branch",
+    "baseBranch": "main",
+    "branchPrefix": "ralph/"
+  },
+  "quality": {
+    "autoDetect": true,
+    "commands": {
+      "lint": null,
+      "typecheck": null,
+      "test": null,
+      "build": null
+    }
+  },
+  "iterations": {
+    "max": 20,
+    "delaySeconds": 2
+  },
+  "claude": {
+    "model": "sonnet"
+  }
+}

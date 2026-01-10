@@ -1,0 +1,111 @@
+{
+  "project": "task-manager",
+  "branchName": "ralph/task-manager",
+  "description": "A simple task management application with CRUD operations",
+  "gitStrategy": "single-branch",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Initialize project structure",
+      "description": "As a developer, I want a clean project structure so that I can build features on a solid foundation.",
+      "acceptanceCriteria": [
+        "Project has standard directory structure",
+        "Package manager is initialized",
+        "Basic configuration files are in place"
+      ],
+      "technicalNotes": "Use industry-standard conventions for the chosen tech stack.",
+      "priority": 1,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-002",
+      "title": "Create task data model",
+      "description": "As a developer, I want a task data model so that I can store and retrieve tasks.",
+      "acceptanceCriteria": [
+        "Task has id, title, description, status, and createdAt fields",
+        "Status can be 'todo', 'in-progress', or 'done'",
+        "Model includes validation for required fields"
+      ],
+      "technicalNotes": "",
+      "priority": 1,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-003",
+      "title": "Add task creation endpoint",
+      "description": "As a user, I want to create new tasks so that I can track my work.",
+      "acceptanceCriteria": [
+        "POST /tasks creates a new task",
+        "Returns 201 with created task on success",
+        "Returns 400 with validation errors on invalid input"
+      ],
+      "technicalNotes": "Validate that title is not empty.",
+      "priority": 2,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-004",
+      "title": "Add task listing endpoint",
+      "description": "As a user, I want to see all my tasks so that I can review my workload.",
+      "acceptanceCriteria": [
+        "GET /tasks returns all tasks",
+        "Tasks are sorted by createdAt descending",
+        "Response includes total count"
+      ],
+      "technicalNotes": "",
+      "priority": 2,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-005",
+      "title": "Add task update endpoint",
+      "description": "As a user, I want to update tasks so that I can change their status or details.",
+      "acceptanceCriteria": [
+        "PUT /tasks/:id updates an existing task",
+        "Returns 200 with updated task on success",
+        "Returns 404 if task not found"
+      ],
+      "technicalNotes": "",
+      "priority": 2,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-006",
+      "title": "Add task deletion endpoint",
+      "description": "As a user, I want to delete tasks so that I can remove completed or irrelevant items.",
+      "acceptanceCriteria": [
+        "DELETE /tasks/:id removes a task",
+        "Returns 204 on success",
+        "Returns 404 if task not found"
+      ],
+      "technicalNotes": "",
+      "priority": 3,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-007",
+      "title": "Add basic test suite",
+      "description": "As a developer, I want tests so that I can verify the API works correctly.",
+      "acceptanceCriteria": [
+        "Tests cover all CRUD operations",
+        "Tests verify error handling",
+        "All tests pass"
+      ],
+      "technicalNotes": "Use appropriate testing framework for the tech stack.",
+      "priority": 3,
+      "passes": false,
+      "notes": ""
+    }
+  ],
+  "metadata": {
+    "createdAt": "2024-01-15T10:30:00Z",
+    "totalStories": 7,
+    "completedStories": 0
+  }
+}

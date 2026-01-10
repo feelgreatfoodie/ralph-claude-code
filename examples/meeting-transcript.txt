@@ -1,0 +1,76 @@
+# Example Meeting Transcript
+
+This is an example of meeting notes that can be converted into a PRD using Ralph.
+
+---
+
+## Meeting: Task Manager App Planning
+**Date:** January 15, 2024
+**Participants:** Alice (Product Manager), Bob (Tech Lead), Carol (Designer)
+
+---
+
+**Alice:** Alright team, let's plan out this task manager feature. What do we absolutely need for the first version?
+
+**Bob:** First things first - we need a solid project structure. I'm thinking Node.js with Express since that's what we're most comfortable with.
+
+**Alice:** Agreed. That's definitely priority one. What about the actual task functionality?
+
+**Carol:** Users need to create tasks, obviously. And see all their tasks in a list. Pretty standard stuff.
+
+**Bob:** Right. So we need a data model for tasks. I'm thinking id, title, description, status, and timestamps. Pretty standard stuff.
+
+**Alice:** What statuses should we support?
+
+**Carol:** Let's keep it simple - todo, in progress, and done. We can always add more later.
+
+**Bob:** Sounds good. So we'll need endpoints for creating tasks, listing them, updating them...
+
+**Alice:** And deleting. People need to clean up their lists.
+
+**Bob:** Of course. Full CRUD operations.
+
+**Alice:** Should we add user authentication now?
+
+**Bob:** I'd vote no for this phase. That adds a lot of complexity. Let's get the core task management working first.
+
+**Alice:** Good point. Let's defer that to phase two.
+
+**Carol:** What about categories or tags for tasks?
+
+**Alice:** Also phase two. Let's just get basic CRUD working first.
+
+**Bob:** I'll need tests for all this. We should make that a requirement.
+
+**Alice:** Absolutely. Tests are non-negotiable. Can't ship without them.
+
+**Bob:** What about due dates and reminders?
+
+**Alice:** Out of scope for now. Let's not overcomplicate things.
+
+**Carol:** Makes sense. Simple is better for the first version.
+
+**Alice:** So to summarize - we need project setup, data model, CRUD endpoints, and tests. No auth, no categories, no due dates. Sound right?
+
+**Bob:** Perfect. I'd prioritize it as: project structure first, then data model, then the create and list endpoints since those are most important, then update and delete, and finally tests.
+
+**Alice:** Great. What branch should we use?
+
+**Bob:** Let's use `ralph/task-manager-api`.
+
+**Alice:** Perfect. Let's do this!
+
+---
+
+## Action Items from Meeting
+
+1. Set up Express project with TypeScript
+2. Create Task data model
+3. Implement CRUD endpoints
+4. Add test coverage
+
+## Deferred to Phase 2
+
+- User authentication
+- Categories/tags
+- Due dates and reminders
