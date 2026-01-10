@@ -49,7 +49,7 @@ We welcome code contributions:
    - Click "Fork" on GitHub
    - Clone your fork locally:
      ```bash
-     git clone https://github.com/YOUR_USERNAME/ralph-claude-code.git
+     git clone https://github.com/feelgreatfoodie/ralph-claude-code.git
      cd ralph-claude-code
      ```
 

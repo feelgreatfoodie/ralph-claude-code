@@ -40,7 +40,7 @@ sudo yum install curl
 
 **Alternative:** Clone the repository manually instead:
 ```bash
-git clone https://github.com/YOUR_USERNAME/ralph-claude-code.git
+git clone https://github.com/feelgreatfoodie/ralph-claude-code.git
 cd ralph-claude-code
 ./install.sh
 ```
@@ -508,9 +508,9 @@ When reporting issues, please include:
    - `./ralph/progress.txt` (last 50 lines)
 5. **Steps to reproduce**
 
-Open issues at: https://github.com/YOUR_USERNAME/ralph-claude-code/issues
+Open issues at: https://github.com/feelgreatfoodie/ralph-claude-code/issues
 
 ### Community support
 
-- GitHub Discussions: https://github.com/YOUR_USERNAME/ralph-claude-code/discussions
+- GitHub Discussions: https://github.com/feelgreatfoodie/ralph-claude-code/discussions
 - Search existing issues first — your problem may already be solved!

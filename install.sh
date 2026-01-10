@@ -3,7 +3,7 @@
 # Ralph for Claude Code - Installation Script
 #
 # Usage:
-#   curl -fsSL https://raw.githubusercontent.com/YOUR_USERNAME/ralph-claude-code/main/install.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/feelgreatfoodie/ralph-claude-code/main/install.sh | bash
 #
 #   Or clone the repo and run:
 #   ./install.sh
@@ -159,7 +159,7 @@ install_from_local() {
 install_from_remote() {
     log_step "Downloading Ralph from GitHub..."
 
-    local BASE_URL="https://raw.githubusercontent.com/YOUR_USERNAME/ralph-claude-code/main"
+    local BASE_URL="https://raw.githubusercontent.com/feelgreatfoodie/ralph-claude-code/main"
 
     # Download scripts
     curl -fsSL "$BASE_URL/scripts/ralph.sh" -o "$RALPH_HOME/ralph.sh"
@@ -260,7 +260,7 @@ print_success() {
     echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
     echo ""
     echo "For detailed documentation, see: $RALPH_HOME/README.md"
-    echo "Or visit: https://github.com/YOUR_USERNAME/ralph-claude-code"
+    echo "Or visit: https://github.com/feelgreatfoodie/ralph-claude-code"
     echo ""
 }
 

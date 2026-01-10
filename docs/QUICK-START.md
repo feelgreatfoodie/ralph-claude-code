@@ -21,7 +21,7 @@ Don't have these? See the [main README](../README.md#prerequisites) for installa
 Run this command in your terminal:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/YOUR_USERNAME/ralph-claude-code/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/feelgreatfoodie/ralph-claude-code/main/install.sh | bash
 ```
 
 Then add Ralph to your PATH:

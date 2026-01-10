@@ -173,7 +173,7 @@ For reviewing and editing files:
 Open your terminal and run:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/YOUR_USERNAME/ralph-claude-code/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/feelgreatfoodie/ralph-claude-code/main/install.sh | bash
 ```
 
 This downloads and sets up Ralph automatically.
@@ -182,7 +182,7 @@ This downloads and sets up Ralph automatically.
 
 1. **Clone this repository:**
    ```bash
-   git clone https://github.com/YOUR_USERNAME/ralph-claude-code.git
+   git clone https://github.com/feelgreatfoodie/ralph-claude-code.git
    cd ralph-claude-code
    ```
 
@@ -858,8 +858,8 @@ MIT License - see [LICENSE](LICENSE) for details.
 ## Getting Help
 
 - **Documentation**: You're reading it!
-- **Issues**: [GitHub Issues](https://github.com/YOUR_USERNAME/ralph-claude-code/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/YOUR_USERNAME/ralph-claude-code/discussions)
+- **Issues**: [GitHub Issues](https://github.com/feelgreatfoodie/ralph-claude-code/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/feelgreatfoodie/ralph-claude-code/discussions)
 
 ---
 
