@@ -36,22 +36,36 @@ detect_stack() {
         # Check for specific scripts in package.json
         local pkg="$project_dir/package.json"
 
+        # Detect package manager (bun > pnpm > yarn > npm)
+        local pkg_manager="npm"
+        local pkg_runner="npx"
+        if [[ -f "$project_dir/bun.lockb" ]] || [[ -f "$project_dir/bun.lock" ]]; then
+            pkg_manager="bun"
+            pkg_runner="bun"
+        elif [[ -f "$project_dir/pnpm-lock.yaml" ]]; then
+            pkg_manager="pnpm"
+            pkg_runner="pnpm"
+        elif [[ -f "$project_dir/yarn.lock" ]]; then
+            pkg_manager="yarn"
+            pkg_runner="yarn"
+        fi
+
         # Lint command
         if grep -q '"lint"' "$pkg" 2>/dev/null; then
-            LINT_CMD="npm run lint"
+            LINT_CMD="$pkg_manager run lint"
         elif [[ -f "$project_dir/.eslintrc.js" ]] || [[ -f "$project_dir/.eslintrc.json" ]] || [[ -f "$project_dir/eslint.config.js" ]]; then
-            LINT_CMD="npx eslint ."
+            LINT_CMD="$pkg_runner eslint ."
         elif [[ -f "$project_dir/biome.json" ]]; then
-            LINT_CMD="npx biome check ."
+            LINT_CMD="$pkg_runner biome check ."
         fi
 
         # TypeScript detection
         if [[ -f "$project_dir/tsconfig.json" ]]; then
             STACK_TYPE="typescript"
             if grep -q '"typecheck"' "$pkg" 2>/dev/null; then
-                TYPECHECK_CMD="npm run typecheck"
+                TYPECHECK_CMD="$pkg_manager run typecheck"
             else
-                TYPECHECK_CMD="npx tsc --noEmit"
+                TYPECHECK_CMD="$pkg_runner tsc --noEmit"
             fi
         fi
 
@@ -59,20 +73,20 @@ detect_stack() {
         if grep -q '"test"' "$pkg" 2>/dev/null; then
             # Check it's not the default "Error: no test specified"
             if ! grep -q 'no test specified' "$pkg" 2>/dev/null; then
-                TEST_CMD="npm test"
+                TEST_CMD="$pkg_manager test"
             fi
         fi
         if [[ -z "$TEST_CMD" ]]; then
             if [[ -f "$project_dir/vitest.config.ts" ]] || [[ -f "$project_dir/vitest.config.js" ]]; then
-                TEST_CMD="npx vitest run"
+                TEST_CMD="$pkg_runner vitest run"
             elif [[ -f "$project_dir/jest.config.js" ]] || [[ -f "$project_dir/jest.config.ts" ]]; then
-                TEST_CMD="npx jest"
+                TEST_CMD="$pkg_runner jest"
             fi
         fi
 
         # Build command
         if grep -q '"build"' "$pkg" 2>/dev/null; then
-            BUILD_CMD="npm run build"
+            BUILD_CMD="$pkg_manager run build"
         fi
 
         return 0
@@ -161,7 +175,7 @@ detect_stack() {
             TEST_CMD="bundle exec rails test"
         elif [[ -d "$project_dir/spec" ]]; then
             TEST_CMD="bundle exec rspec"
-        end
+        fi
 
         return 0
     fi

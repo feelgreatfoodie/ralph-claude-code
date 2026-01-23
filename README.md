@@ -851,7 +851,6 @@ MIT License - see [LICENSE](LICENSE) for details.
 
 - Inspired by [Ralph](https://github.com/snarktank/ralph) by Geoffrey Huntley
 - Built for [Claude Code](https://claude.ai) by Anthropic
-- Created by the team at [Your Organization]
 
 ---
 

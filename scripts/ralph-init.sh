@@ -10,6 +10,47 @@
 
 set -euo pipefail
 
+# ============================================================================
+# Help
+# ============================================================================
+
+show_help() {
+    cat << 'EOF'
+Ralph Init - Initialize Ralph in the current project
+
+Usage: ralph-init.sh [OPTIONS] [project-name]
+
+Arguments:
+  project-name      Name for the project (default: current directory name)
+
+Options:
+  -h, --help        Show this help message and exit
+
+Description:
+  Creates the ./ralph/ directory structure in the current project with
+  configuration files, progress tracking, and transcript placeholder.
+
+What it creates:
+  ./ralph/ralph.config.json  - Project configuration
+  ./ralph/progress.txt       - Progress log for iterations
+  ./ralph/transcript.txt     - Placeholder for meeting notes
+  ./ralph/archive/           - Archive directory for previous runs
+
+Examples:
+  ralph-init.sh              # Initialize with directory name as project
+  ralph-init.sh my-app       # Initialize with custom project name
+  ralph-init.sh --help       # Show this help message
+
+For more information, see: https://github.com/anthropics/ralph-claude-code
+EOF
+    exit 0
+}
+
+# Handle help flag
+if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
+    show_help
+fi
+
 RALPH_GLOBAL="${RALPH_HOME:-$HOME/.ralph}"
 
 # Colors
@@ -20,7 +61,28 @@ BLUE='\033[0;34m'
 CYAN='\033[0;36m'
 NC='\033[0m'
 
-PROJECT_NAME="${1:-$(basename "$(pwd)")}"
+# Get and sanitize project name
+# Remove special characters that could break JSON or shell commands
+sanitize_project_name() {
+    local name="$1"
+    # Replace spaces and special chars with hyphens, convert to lowercase
+    # Keep only alphanumeric, hyphens, and underscores
+    echo "$name" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9_-]/-/g' | sed 's/--*/-/g' | sed 's/^-//' | sed 's/-$//'
+}
+
+RAW_PROJECT_NAME="${1:-$(basename "$(pwd)")}"
+PROJECT_NAME=$(sanitize_project_name "$RAW_PROJECT_NAME")
+
+# Warn if name was sanitized
+if [[ "$PROJECT_NAME" != "$RAW_PROJECT_NAME" ]]; then
+    echo -e "${YELLOW}[init]${NC} Project name sanitized: '$RAW_PROJECT_NAME' -> '$PROJECT_NAME'"
+fi
+
+# Ensure we have a valid project name
+if [[ -z "$PROJECT_NAME" ]]; then
+    PROJECT_NAME="my-project"
+    echo -e "${YELLOW}[init]${NC} Using default project name: $PROJECT_NAME"
+fi
 
 echo ""
 echo -e "${CYAN}╔══════════════════════════════════════════════════════════════╗${NC}"

@@ -12,6 +12,47 @@
 set -euo pipefail
 
 # ============================================================================
+# Help
+# ============================================================================
+
+show_help() {
+    cat << 'EOF'
+Ralph for Claude Code - Autonomous AI Agent Loop
+
+Usage: ralph.sh [OPTIONS] [max_iterations]
+
+Arguments:
+  max_iterations    Maximum number of iterations before stopping (default: 20)
+
+Options:
+  -h, --help        Show this help message and exit
+
+Description:
+  This script orchestrates repeated Claude Code CLI invocations to complete
+  all user stories in a PRD. Each iteration runs with fresh context, preserving
+  knowledge through git commits, progress.txt, and CLAUDE.md files.
+
+Prerequisites:
+  - prd.json must exist in ./ralph/ or ~/.ralph/
+  - Claude Code CLI must be installed and authenticated
+  - Must be run from within a git repository
+
+Examples:
+  ralph.sh              # Run with default 20 iterations
+  ralph.sh 50           # Run with up to 50 iterations
+  ralph.sh --help       # Show this help message
+
+For more information, see: https://github.com/anthropics/ralph-claude-code
+EOF
+    exit 0
+}
+
+# Handle help flag
+if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
+    show_help
+fi
+
+# ============================================================================
 # Configuration
 # ============================================================================
 
@@ -66,6 +107,33 @@ find_file() {
     fi
 }
 
+# Extract JSON value using jq if available, otherwise fall back to grep/sed
+# Usage: json_get <file> <jq_path> <grep_pattern> <default>
+json_get() {
+    local file="$1"
+    local jq_path="$2"
+    local grep_pattern="$3"
+    local default="$4"
+
+    if command -v jq &>/dev/null; then
+        local value
+        value=$(jq -r "$jq_path // empty" "$file" 2>/dev/null)
+        if [[ -n "$value" && "$value" != "null" ]]; then
+            echo "$value"
+            return
+        fi
+    else
+        # Fallback to grep/sed (less reliable but works without jq)
+        local value
+        value=$(grep -o "$grep_pattern" "$file" 2>/dev/null | head -1 | sed 's/.*: *"\{0,1\}\([^"]*\)"\{0,1\}/\1/' || true)
+        if [[ -n "$value" ]]; then
+            echo "$value"
+            return
+        fi
+    fi
+    echo "$default"
+}
+
 # Load configuration with local override
 load_config() {
     local config_file
@@ -74,13 +142,13 @@ load_config() {
     if [[ -n "$config_file" ]]; then
         log_info "Loading config from: $config_file"
 
-        # Extract values using grep/sed (portable, no jq dependency)
-        GIT_STRATEGY=$(grep -o '"strategy"[[:space:]]*:[[:space:]]*"[^"]*"' "$config_file" | sed 's/.*: *"\([^"]*\)"/\1/' || echo "single-branch")
-        GIT_BASE_BRANCH=$(grep -o '"baseBranch"[[:space:]]*:[[:space:]]*"[^"]*"' "$config_file" | sed 's/.*: *"\([^"]*\)"/\1/' || echo "main")
-        GIT_BRANCH_PREFIX=$(grep -o '"branchPrefix"[[:space:]]*:[[:space:]]*"[^"]*"' "$config_file" | sed 's/.*: *"\([^"]*\)"/\1/' || echo "ralph/")
-        MAX_ITERATIONS_CONFIG=$(grep -o '"max"[[:space:]]*:[[:space:]]*[0-9]*' "$config_file" | sed 's/.*: *//' || echo "")
-        DELAY_CONFIG=$(grep -o '"delaySeconds"[[:space:]]*:[[:space:]]*[0-9]*' "$config_file" | sed 's/.*: *//' || echo "")
-        CLAUDE_MODEL=$(grep -o '"model"[[:space:]]*:[[:space:]]*"[^"]*"' "$config_file" | sed 's/.*: *"\([^"]*\)"/\1/' || echo "sonnet")
+        # Extract values using jq if available, otherwise grep/sed
+        GIT_STRATEGY=$(json_get "$config_file" '.git.strategy' '"strategy"[[:space:]]*:[[:space:]]*"[^"]*"' "single-branch")
+        GIT_BASE_BRANCH=$(json_get "$config_file" '.git.baseBranch' '"baseBranch"[[:space:]]*:[[:space:]]*"[^"]*"' "main")
+        GIT_BRANCH_PREFIX=$(json_get "$config_file" '.git.branchPrefix' '"branchPrefix"[[:space:]]*:[[:space:]]*"[^"]*"' "ralph/")
+        MAX_ITERATIONS_CONFIG=$(json_get "$config_file" '.iterations.max' '"max"[[:space:]]*:[[:space:]]*[0-9]*' "")
+        DELAY_CONFIG=$(json_get "$config_file" '.iterations.delaySeconds' '"delaySeconds"[[:space:]]*:[[:space:]]*[0-9]*' "")
+        CLAUDE_MODEL=$(json_get "$config_file" '.claude.model' '"model"[[:space:]]*:[[:space:]]*"[^"]*"' "sonnet")
 
         # Apply config values if not overridden by CLI
         [[ -z "${1:-}" && -n "$MAX_ITERATIONS_CONFIG" ]] && MAX_ITERATIONS="$MAX_ITERATIONS_CONFIG"
@@ -119,7 +187,13 @@ get_branch_name() {
 get_incomplete_count() {
     local prd_file="$1"
     # Count stories where passes is false or not present
-    grep -c '"passes"[[:space:]]*:[[:space:]]*false' "$prd_file" || echo "0"
+    if command -v jq &>/dev/null; then
+        # Use jq to count stories where passes is false or missing
+        jq '[.userStories[] | select(.passes != true)] | length' "$prd_file" 2>/dev/null || echo "0"
+    else
+        # Fallback: count "passes": false occurrences
+        grep -c '"passes"[[:space:]]*:[[:space:]]*false' "$prd_file" 2>/dev/null || echo "0"
+    fi
 }
 
 check_all_complete() {

@@ -112,9 +112,7 @@ git add -A
 git commit -m "[US-XXX] Story title
 
 - Implementation detail 1
-- Implementation detail 2
-
-Co-Authored-By: Ralph <ralph@autonomous.agent>"
+- Implementation detail 2"
 ```
 
 ### Step 9: Mark Story Complete
