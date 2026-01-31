@@ -4,14 +4,19 @@
 
 Ralph is an autonomous code generation system that uses Claude Code to implement entire projects from meeting notes or PRDs. It breaks work into small tasks, runs each in a fresh Claude session, and commits changes incrementally.
 
+**New in v2:** CacheBash integration for mobile communication, parallel story execution, and smart error recovery.
+
 ## Repository Structure
 
 ```
 ralph-claude-code/
 ├── scripts/                    # Core execution scripts
-│   ├── ralph.sh               # Main execution loop
+│   ├── ralph.sh               # Main execution loop (sequential + parallel modes)
 │   ├── ralph-init.sh          # Project initialization
 │   └── package.sh             # Create shareable package
+├── prompts/                    # Agent prompts for parallel mode
+│   ├── orchestrator.md        # Main orchestrator prompt
+│   └── subagent-story.md      # Subagent prompt for parallel work
 ├── skills/                     # Claude Code skills (prompt templates)
 │   ├── prd/                   # /prd - Generate PRD from notes
 │   ├── ralph-convert/         # /ralph-convert - PRD to JSON
@@ -26,27 +31,109 @@ ralph-claude-code/
 │   ├── engineering/           # Best practices
 │   └── questions/             # Planning frameworks
 ├── install.sh                  # One-line installer
+├── prompt.md                   # Main iteration prompt (sequential mode)
 └── README.md                   # User documentation
 ```
+
+## Key Features
+
+### Execution Modes
+
+| Mode | Command | Description |
+|------|---------|-------------|
+| Sequential | `ralph.sh` | One story at a time, iteration loop |
+| Parallel | `ralph.sh --parallel` | Orchestrator spawns subagents for concurrent work |
+
+### CacheBash Integration
+
+Ralph communicates with users via mobile when running autonomously:
+- **Status updates** - Track progress from your phone
+- **Question asking** - Answer blocking questions via mobile app
+- **Error notifications** - Get notified of failures immediately
+
+### Smart Error Recovery
+
+Quality gates now have intelligent debugging:
+- Auto-fix lint/type errors (max 3 attempts)
+- Analyze test failures (implementation vs test bug)
+- Escalate to user via CacheBash when stuck
 
 ## Key Scripts
 
 ### ralph.sh
 
 Main autonomous execution loop:
-- Reads `./ralph/prd.json` for task list
-- Runs Claude Code for each task
+- **Sequential mode**: Reads `./ralph/prd.json`, runs one story per iteration
+- **Parallel mode**: Uses orchestrator to spawn subagents for concurrent work
 - Executes quality gates (lint, typecheck, test, build)
 - Commits changes to git
-- Updates progress tracking
+- Updates status via CacheBash
+
+New flags:
+- `--parallel` - Enable orchestrator mode with parallel subagents
+- `--sequential` - Force sequential mode (default)
+- `--no-mcp-check` - Skip CacheBash MCP configuration check
 
 ### ralph-init.sh
 
 Initializes a project for Ralph:
-- Creates `./ralph/` directory
+- Creates `./ralph/` directory with prompts subdirectory
 - Auto-detects tech stack
-- Creates configuration files
+- Creates configuration files with new options
+- Optionally sets up CacheBash MCP server
 - Sets up progress tracking
+
+New flags:
+- `--skip-cachebash` - Skip CacheBash setup prompt
+
+## Prompts
+
+### prompt.md (Sequential Mode)
+
+Instructions for a single Ralph iteration:
+- Read state from files
+- Select next incomplete story
+- Implement with smart recovery
+- Commit and signal completion
+- Communicate via CacheBash when blocked
+
+### prompts/orchestrator.md (Parallel Mode)
+
+Instructions for the orchestrator agent:
+- Analyze PRD dependencies
+- Group stories into parallelizable waves
+- Spawn up to 3 subagents concurrently
+- Coordinate commits in dependency order
+- Handle failures and blocked subagents
+
+### prompts/subagent-story.md
+
+Template for subagent workers:
+- Focused on single story implementation
+- Reports back to orchestrator
+- Uses CacheBash directly for questions
+- Stages changes but does NOT commit
+
+## Configuration
+
+`ralph.config.json` new options:
+
+```json
+{
+  "quality": {
+    "smartRecovery": true,
+    "maxFixAttempts": 3
+  },
+  "parallel": {
+    "enabled": false,
+    "maxConcurrent": 3
+  },
+  "cachebash": {
+    "enabled": true,
+    "pollIntervalSeconds": 30
+  }
+}
+```
 
 ## Skills (Slash Commands)
 
@@ -89,11 +176,13 @@ domains/[name]/
 
 ### Commits
 - Use conventional commits format
-- Include `Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>` when Claude generates the change
+- All commits authored by `feelgreatfoodie` (no co-author) unless explicitly told otherwise
+- Use `--author="feelgreatfoodie <feelgreatfoodie@users.noreply.github.com>"` flag
 
 ### File Naming
 - Scripts: `kebab-case.sh`
 - Skills: `skill-name/prompt.md`
+- Prompts: `agent-name.md`
 - Domains: lowercase single word (auth, api, ui)
 
 ### Quality Gates
@@ -118,6 +207,49 @@ After modifying saas-blueprint:
 
 4. **Incremental Commits** - One commit per task with descriptive message.
 
+5. **CacheBash Communication** - Ask questions via mobile rather than guessing on ambiguous requirements.
+
+6. **Smart Recovery** - Try to fix errors automatically before escalating to user.
+
+7. **Knowledge Capture** - Learnings must be captured and promoted to appropriate levels.
+
+8. **Commit Authorship** - ALL commits authored by `feelgreatfoodie`, NO co-author line, unless explicitly told otherwise.
+
+## Knowledge Accumulation System
+
+Learnings flow upward through three tiers:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  ~/.ralph/learnings.md (Global)                             │
+│  Cross-project patterns, framework gotchas, tool configs    │
+├─────────────────────────────────────────────────────────────┤
+│  ./CLAUDE.md (Project)                                      │
+│  Reusable patterns, critical rules, architecture notes      │
+├─────────────────────────────────────────────────────────────┤
+│  ./ralph/progress.txt (Run)                                 │
+│  Story-specific learnings, iteration logs                   │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### What Goes Where
+
+| Learning Type | progress.txt | CLAUDE.md | learnings.md |
+|--------------|--------------|-----------|--------------|
+| Story-specific implementation details | ✅ | ❌ | ❌ |
+| Reusable code patterns | ✅ | ✅ | ❌ |
+| Critical rules (must follow) | ✅ | ✅ | ❌ |
+| Architecture insights | ✅ | ✅ | ❌ |
+| Framework-specific gotchas | ✅ | ✅ | ✅ |
+| Cross-project patterns | ✅ | ❌ | ✅ |
+
+### Promotion Flow
+
+1. **Subagent** discovers pattern → Reports in LEARNINGS field
+2. **Orchestrator** consolidates → Writes to progress.txt, promotes to CLAUDE.md
+3. **End of project** → Framework patterns promoted to ~/.ralph/learnings.md
+4. **Next project** → Agents read learnings.md for cross-project knowledge
+
 ## Testing Changes
 
 ### Test ralph-init.sh
@@ -127,11 +259,18 @@ git init
 /path/to/ralph-init.sh
 ```
 
-### Test ralph.sh
+### Test ralph.sh (Sequential)
 ```bash
 cd test-project
 # Add a simple prd.json
 ~/.ralph/ralph.sh
+```
+
+### Test ralph.sh (Parallel)
+```bash
+cd test-project
+# Add prd.json with multiple independent stories
+~/.ralph/ralph.sh --parallel
 ```
 
 ### Test Blueprint Verification
@@ -162,6 +301,11 @@ cd test-project
 3. Re-run verification
 4. Commit to saas-blueprint repo
 
+### Set Up CacheBash
+1. Download CacheBash mobile app
+2. Get API key from Settings
+3. Run: `claude mcp add --transport http cachebash "https://cachebash-mcp-922749444863.us-central1.run.app/v1/mcp" --header "Authorization: Bearer YOUR_KEY"`
+
 ---
 
-*Last updated: 2026-01-23*
+*Last updated: 2026-01-30*

@@ -131,7 +131,7 @@ backup_existing() {
 
 create_directories() {
     log_step "Creating directory structure..."
-    mkdir -p "$RALPH_HOME"/{scripts,skills/prd,skills/ralph-convert,templates,lib,archive}
+    mkdir -p "$RALPH_HOME"/{scripts,skills/prd,skills/ralph-convert,templates,lib,archive,prompts}
 }
 
 install_from_local() {
@@ -145,6 +145,9 @@ install_from_local() {
     # Copy prompt
     cp "$SOURCE_DIR/prompt.md" "$RALPH_HOME/"
 
+    # Copy prompts (orchestrator and subagent)
+    cp "$SOURCE_DIR/prompts/"*.md "$RALPH_HOME/prompts/"
+
     # Copy lib
     cp "$SOURCE_DIR/lib/detect-stack.sh" "$RALPH_HOME/lib/"
 
@@ -154,6 +157,12 @@ install_from_local() {
 
     # Copy templates
     cp "$SOURCE_DIR/templates/"* "$RALPH_HOME/templates/"
+
+    # Initialize global learnings file if it doesn't exist
+    if [[ ! -f "$RALPH_HOME/learnings.md" ]]; then
+        cp "$RALPH_HOME/templates/learnings.md" "$RALPH_HOME/learnings.md"
+        log_step "Initialized global learnings file"
+    fi
 }
 
 install_from_remote() {
@@ -169,6 +178,10 @@ install_from_remote() {
     # Download prompt
     curl -fsSL "$BASE_URL/prompt.md" -o "$RALPH_HOME/prompt.md"
 
+    # Download prompts (orchestrator and subagent for parallel mode)
+    curl -fsSL "$BASE_URL/prompts/orchestrator.md" -o "$RALPH_HOME/prompts/orchestrator.md"
+    curl -fsSL "$BASE_URL/prompts/subagent-story.md" -o "$RALPH_HOME/prompts/subagent-story.md"
+
     # Download lib
     curl -fsSL "$BASE_URL/lib/detect-stack.sh" -o "$RALPH_HOME/lib/detect-stack.sh"
 
@@ -181,6 +194,12 @@ install_from_remote() {
     curl -fsSL "$BASE_URL/templates/prd.json.example" -o "$RALPH_HOME/templates/prd.json.example"
     curl -fsSL "$BASE_URL/templates/prd.md.example" -o "$RALPH_HOME/templates/prd.md.example"
     curl -fsSL "$BASE_URL/templates/transcript.example.txt" -o "$RALPH_HOME/templates/transcript.example.txt"
+    curl -fsSL "$BASE_URL/templates/learnings.md" -o "$RALPH_HOME/templates/learnings.md"
+
+    # Initialize global learnings file if it doesn't exist
+    if [[ ! -f "$RALPH_HOME/learnings.md" ]]; then
+        cp "$RALPH_HOME/templates/learnings.md" "$RALPH_HOME/learnings.md"
+    fi
 }
 
 set_permissions() {

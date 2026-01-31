@@ -12,7 +12,9 @@
       "typecheck": null,
       "test": null,
       "build": null
-    }
+    },
+    "smartRecovery": true,
+    "maxFixAttempts": 3
   },
   "iterations": {
     "max": 20,
@@ -20,5 +22,13 @@
   },
   "claude": {
     "model": "sonnet"
+  },
+  "parallel": {
+    "enabled": false,
+    "maxConcurrent": 3
+  },
+  "cachebash": {
+    "enabled": true,
+    "pollIntervalSeconds": 30
   }
 }

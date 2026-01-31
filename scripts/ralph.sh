@@ -2,11 +2,11 @@
 #
 # Ralph for Claude Code - Autonomous AI Agent Loop
 #
-# Usage: ralph.sh [max_iterations]
+# Usage: ralph.sh [OPTIONS] [max_iterations]
 #
-# This script orchestrates repeated Claude Code CLI invocations to complete
-# all user stories in a PRD. Each iteration runs with fresh context, preserving
-# knowledge through git commits, progress.txt, and CLAUDE.md files.
+# This script orchestrates Claude Code CLI invocations to complete
+# all user stories in a PRD. Supports both sequential (one story at a time)
+# and parallel (orchestrator with subagents) modes.
 #
 
 set -euo pipefail
@@ -26,19 +26,26 @@ Arguments:
 
 Options:
   -h, --help        Show this help message and exit
+  --parallel        Run in parallel mode (orchestrator + subagents)
+  --sequential      Run in sequential mode (one story at a time, default)
+  --no-mcp-check    Skip CacheBash MCP configuration check
 
 Description:
-  This script orchestrates repeated Claude Code CLI invocations to complete
-  all user stories in a PRD. Each iteration runs with fresh context, preserving
-  knowledge through git commits, progress.txt, and CLAUDE.md files.
+  This script orchestrates Claude Code CLI invocations to complete
+  all user stories in a PRD.
+
+  Sequential mode: Each iteration implements one story, then exits.
+  Parallel mode: Orchestrator analyzes dependencies and spawns subagents.
 
 Prerequisites:
   - prd.json must exist in ./ralph/ or ~/.ralph/
   - Claude Code CLI must be installed and authenticated
   - Must be run from within a git repository
+  - CacheBash MCP server should be configured (for status updates)
 
 Examples:
-  ralph.sh              # Run with default 20 iterations
+  ralph.sh              # Run sequentially with default 20 iterations
+  ralph.sh --parallel   # Run with orchestrator and parallel subagents
   ralph.sh 50           # Run with up to 50 iterations
   ralph.sh --help       # Show this help message
 
@@ -46,11 +53,6 @@ For more information, see: https://github.com/anthropics/ralph-claude-code
 EOF
     exit 0
 }
-
-# Handle help flag
-if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
-    show_help
-fi
 
 # ============================================================================
 # Configuration
@@ -60,6 +62,8 @@ RALPH_GLOBAL_DIR="${RALPH_HOME:-$HOME/.ralph}"
 RALPH_LOCAL_DIR="./ralph"
 MAX_ITERATIONS="${1:-20}"
 DELAY_SECONDS=2
+EXECUTION_MODE="sequential"  # or "parallel"
+CHECK_MCP=true
 
 # Colors for output
 RED='\033[0;31m'
@@ -68,6 +72,38 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 CYAN='\033[0;36m'
 NC='\033[0m' # No Color
+
+# ============================================================================
+# Argument Parsing
+# ============================================================================
+
+parse_args() {
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            -h|--help)
+                show_help
+                ;;
+            --parallel)
+                EXECUTION_MODE="parallel"
+                shift
+                ;;
+            --sequential)
+                EXECUTION_MODE="sequential"
+                shift
+                ;;
+            --no-mcp-check)
+                CHECK_MCP=false
+                shift
+                ;;
+            *)
+                if [[ "$1" =~ ^[0-9]+$ ]]; then
+                    MAX_ITERATIONS="$1"
+                fi
+                shift
+                ;;
+        esac
+    done
+}
 
 # ============================================================================
 # Helper Functions
@@ -108,7 +144,6 @@ find_file() {
 }
 
 # Extract JSON value using jq if available, otherwise fall back to grep/sed
-# Usage: json_get <file> <jq_path> <grep_pattern> <default>
 json_get() {
     local file="$1"
     local jq_path="$2"
@@ -123,7 +158,6 @@ json_get() {
             return
         fi
     else
-        # Fallback to grep/sed (less reliable but works without jq)
         local value
         value=$(grep -o "$grep_pattern" "$file" 2>/dev/null | head -1 | sed 's/.*: *"\{0,1\}\([^"]*\)"\{0,1\}/\1/' || true)
         if [[ -n "$value" ]]; then
@@ -142,7 +176,6 @@ load_config() {
     if [[ -n "$config_file" ]]; then
         log_info "Loading config from: $config_file"
 
-        # Extract values using jq if available, otherwise grep/sed
         GIT_STRATEGY=$(json_get "$config_file" '.git.strategy' '"strategy"[[:space:]]*:[[:space:]]*"[^"]*"' "single-branch")
         GIT_BASE_BRANCH=$(json_get "$config_file" '.git.baseBranch' '"baseBranch"[[:space:]]*:[[:space:]]*"[^"]*"' "main")
         GIT_BRANCH_PREFIX=$(json_get "$config_file" '.git.branchPrefix' '"branchPrefix"[[:space:]]*:[[:space:]]*"[^"]*"' "ralph/")
@@ -150,15 +183,70 @@ load_config() {
         DELAY_CONFIG=$(json_get "$config_file" '.iterations.delaySeconds' '"delaySeconds"[[:space:]]*:[[:space:]]*[0-9]*' "")
         CLAUDE_MODEL=$(json_get "$config_file" '.claude.model' '"model"[[:space:]]*:[[:space:]]*"[^"]*"' "sonnet")
 
-        # Apply config values if not overridden by CLI
-        [[ -z "${1:-}" && -n "$MAX_ITERATIONS_CONFIG" ]] && MAX_ITERATIONS="$MAX_ITERATIONS_CONFIG"
+        # New config options
+        PARALLEL_ENABLED=$(json_get "$config_file" '.parallel.enabled' '"enabled"[[:space:]]*:[[:space:]]*true' "false")
+        MAX_CONCURRENT=$(json_get "$config_file" '.parallel.maxConcurrent' '"maxConcurrent"[[:space:]]*:[[:space:]]*[0-9]*' "3")
+        CACHEBASH_ENABLED=$(json_get "$config_file" '.cachebash.enabled' '"enabled"[[:space:]]*:[[:space:]]*true' "true")
+
+        # Apply config values
+        [[ -n "$MAX_ITERATIONS_CONFIG" ]] && MAX_ITERATIONS="$MAX_ITERATIONS_CONFIG"
         [[ -n "$DELAY_CONFIG" ]] && DELAY_SECONDS="$DELAY_CONFIG"
+
+        # Use parallel mode if enabled in config and not overridden by CLI
+        if [[ "$PARALLEL_ENABLED" == "true" && "$EXECUTION_MODE" == "sequential" ]]; then
+            EXECUTION_MODE="parallel"
+        fi
     else
         log_warn "No config file found, using defaults"
         GIT_STRATEGY="single-branch"
         GIT_BASE_BRANCH="main"
         GIT_BRANCH_PREFIX="ralph/"
         CLAUDE_MODEL="sonnet"
+        CACHEBASH_ENABLED="true"
+    fi
+}
+
+# ============================================================================
+# MCP Configuration Check
+# ============================================================================
+
+check_mcp_config() {
+    if [[ "$CHECK_MCP" != "true" ]]; then
+        return 0
+    fi
+
+    if [[ "$CACHEBASH_ENABLED" != "true" ]]; then
+        log_info "CacheBash disabled in config, skipping MCP check"
+        return 0
+    fi
+
+    log_info "Checking CacheBash MCP configuration..."
+
+    if ! command -v claude &>/dev/null; then
+        log_error "Claude Code CLI not found. Install it first."
+        exit 1
+    fi
+
+    # Check if cachebash MCP server is configured
+    if claude mcp list 2>/dev/null | grep -q "cachebash"; then
+        log_success "CacheBash MCP server configured"
+    else
+        log_warn "CacheBash MCP server not configured"
+        log_warn "Ralph will run without mobile notifications."
+        log_warn ""
+        log_warn "To enable CacheBash:"
+        log_warn "  1. Get API key from CacheBash app -> Settings"
+        log_warn "  2. Run: claude mcp add --transport http cachebash \\"
+        log_warn "       \"https://cachebash-mcp-922749444863.us-central1.run.app/v1/mcp\" \\"
+        log_warn "       --header \"Authorization: Bearer YOUR_API_KEY\""
+        log_warn ""
+        log_warn "Use --no-mcp-check to suppress this warning."
+        echo ""
+        read -p "Continue without CacheBash? (y/N) " -n 1 -r
+        echo
+        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+            exit 1
+        fi
     fi
 }
 
@@ -186,12 +274,9 @@ get_branch_name() {
 
 get_incomplete_count() {
     local prd_file="$1"
-    # Count stories where passes is false or not present
     if command -v jq &>/dev/null; then
-        # Use jq to count stories where passes is false or missing
         jq '[.userStories[] | select(.passes != true)] | length' "$prd_file" 2>/dev/null || echo "0"
     else
-        # Fallback: count "passes": false occurrences
         grep -c '"passes"[[:space:]]*:[[:space:]]*false' "$prd_file" 2>/dev/null || echo "0"
     fi
 }
@@ -210,7 +295,6 @@ check_all_complete() {
 setup_git_branch() {
     local branch_name="$1"
 
-    # Ensure we're in a git repo
     if ! git rev-parse --is-inside-work-tree &>/dev/null; then
         log_error "Not in a git repository"
         exit 1
@@ -242,7 +326,6 @@ archive_previous_run() {
     local current_branch
     current_branch=$(get_branch_name "$prd_file")
 
-    # Create local ralph dir if needed
     mkdir -p "$RALPH_LOCAL_DIR"
 
     if [[ -f "$last_branch_file" ]]; then
@@ -257,11 +340,9 @@ archive_previous_run() {
             log_info "Archiving previous run: $archive_name"
             mkdir -p "$RALPH_LOCAL_DIR/archive/$archive_name"
 
-            # Move previous run files to archive
             [[ -f "$RALPH_LOCAL_DIR/progress.txt" ]] && mv "$RALPH_LOCAL_DIR/progress.txt" "$RALPH_LOCAL_DIR/archive/$archive_name/"
             [[ -f "$RALPH_LOCAL_DIR/prd.json" ]] && cp "$RALPH_LOCAL_DIR/prd.json" "$RALPH_LOCAL_DIR/archive/$archive_name/"
 
-            # Reset progress for new run
             echo "# Progress Log - $current_branch" > "$RALPH_LOCAL_DIR/progress.txt"
             echo "Started: $(date)" >> "$RALPH_LOCAL_DIR/progress.txt"
             echo "" >> "$RALPH_LOCAL_DIR/progress.txt"
@@ -296,14 +377,26 @@ EOF
 }
 
 # ============================================================================
-# Claude Execution
+# Signal Handling
 # ============================================================================
 
-run_claude_iteration() {
+cleanup() {
+    log_warn "Received interrupt signal, cleaning up..."
+    # Kill any background Claude processes
+    pkill -P $$ 2>/dev/null || true
+    exit 130
+}
+
+trap cleanup SIGINT SIGTERM
+
+# ============================================================================
+# Claude Execution - Sequential Mode
+# ============================================================================
+
+run_claude_sequential() {
     local iteration="$1"
     local prompt_file
     local prd_file
-    local progress_file="$RALPH_LOCAL_DIR/progress.txt"
 
     prompt_file=$(find_file "prompt.md")
     prd_file=$(get_prd_file)
@@ -313,45 +406,91 @@ run_claude_iteration() {
         exit 1
     fi
 
-    log_info "Running Claude iteration with:"
+    log_info "Running Claude (sequential mode) with:"
     log_info "  Prompt: $prompt_file"
     log_info "  PRD: $prd_file"
     log_info "  Model: $CLAUDE_MODEL"
 
-    # Build the Claude command
     local claude_cmd="claude"
 
-    # Add model flag if not default
     if [[ "$CLAUDE_MODEL" == "opus" ]]; then
         claude_cmd="$claude_cmd --model claude-opus-4-5-20251101"
     fi
 
-    # Run Claude with the prompt, capturing output
-    # The prompt.md instructs Claude what to do
+    # Run Claude with prompt file (no --print to allow MCP tools)
     local output
-    output=$($claude_cmd --print --prompt-file "$prompt_file" 2>&1) || true
+    output=$($claude_cmd --prompt-file "$prompt_file" --dangerously-skip-permissions 2>&1) || true
 
-    # Check for completion signal
+    # Check for completion signals
     if echo "$output" | grep -q '<ralph>COMPLETE</ralph>'; then
         log_success "All stories completed!"
         return 0
     fi
 
-    # Check for iteration complete signal
     if echo "$output" | grep -q '<ralph>ITERATION_COMPLETE</ralph>'; then
         log_success "Iteration $iteration completed successfully"
-        return 1  # Continue to next iteration
+        return 1
     fi
 
-    # Check for error signal
     if echo "$output" | grep -q '<ralph>ERROR</ralph>'; then
         log_error "Iteration encountered an error"
-        echo "$output" | grep -A5 '<ralph>ERROR</ralph>' || true
+        echo "$output" | grep -A10 '<ralph>ERROR</ralph>' || true
         return 2
     fi
 
-    # Default: assume iteration completed
     return 1
+}
+
+# ============================================================================
+# Claude Execution - Parallel Mode (Orchestrator)
+# ============================================================================
+
+run_claude_parallel() {
+    local prompt_file
+    local prd_file
+
+    # Use orchestrator prompt for parallel mode
+    prompt_file=$(find_file "prompts/orchestrator.md")
+    if [[ -z "$prompt_file" ]]; then
+        prompt_file="$RALPH_GLOBAL_DIR/prompts/orchestrator.md"
+    fi
+
+    prd_file=$(get_prd_file)
+
+    if [[ -z "$prompt_file" || ! -f "$prompt_file" ]]; then
+        log_error "No orchestrator.md found for parallel mode"
+        log_error "Expected at: ./ralph/prompts/orchestrator.md or $RALPH_GLOBAL_DIR/prompts/orchestrator.md"
+        exit 1
+    fi
+
+    log_info "Running Claude (parallel/orchestrator mode) with:"
+    log_info "  Prompt: $prompt_file"
+    log_info "  PRD: $prd_file"
+    log_info "  Model: $CLAUDE_MODEL"
+    log_info "  Max concurrent: $MAX_CONCURRENT"
+
+    local claude_cmd="claude"
+
+    if [[ "$CLAUDE_MODEL" == "opus" ]]; then
+        claude_cmd="$claude_cmd --model claude-opus-4-5-20251101"
+    fi
+
+    # Run Claude orchestrator (single run, it manages iterations internally)
+    local output
+    output=$($claude_cmd --prompt-file "$prompt_file" --dangerously-skip-permissions 2>&1) || true
+
+    if echo "$output" | grep -q '<ralph>COMPLETE</ralph>'; then
+        log_success "All stories completed!"
+        return 0
+    fi
+
+    if echo "$output" | grep -q '<ralph>ERROR</ralph>'; then
+        log_error "Orchestrator encountered an error"
+        echo "$output" | grep -A10 '<ralph>ERROR</ralph>' || true
+        return 2
+    fi
+
+    return 0
 }
 
 # ============================================================================
@@ -359,32 +498,32 @@ run_claude_iteration() {
 # ============================================================================
 
 main() {
+    parse_args "$@"
+
     echo ""
     echo -e "${CYAN}╔══════════════════════════════════════════════════════════════╗${NC}"
     echo -e "${CYAN}║          Ralph for Claude Code - Autonomous Agent Loop       ║${NC}"
     echo -e "${CYAN}╚══════════════════════════════════════════════════════════════╝${NC}"
     echo ""
 
-    # Load configuration
-    load_config "$@"
+    load_config
 
-    # Get PRD file
+    log_info "Execution mode: $EXECUTION_MODE"
+
+    # Check MCP configuration
+    check_mcp_config
+
     local prd_file
     prd_file=$(get_prd_file)
     log_info "Using PRD: $prd_file"
 
-    # Archive previous run if branch changed
     archive_previous_run "$prd_file"
-
-    # Initialize progress file
     init_progress_file
 
-    # Setup git branch
     local branch_name
     branch_name=$(get_branch_name "$prd_file")
     setup_git_branch "$branch_name"
 
-    # Check if already complete
     if check_all_complete "$prd_file"; then
         log_success "All stories are already complete!"
         exit 0
@@ -394,56 +533,65 @@ main() {
     incomplete=$(get_incomplete_count "$prd_file")
     log_info "Stories remaining: $incomplete"
 
-    # Main iteration loop
-    local iteration=1
-    while [[ $iteration -le $MAX_ITERATIONS ]]; do
-        log_iteration "$iteration"
+    # Run in appropriate mode
+    if [[ "$EXECUTION_MODE" == "parallel" ]]; then
+        # Parallel mode: orchestrator manages everything in one run
+        run_claude_parallel
+        local result=$?
 
-        # Run Claude
-        local result
-        run_claude_iteration "$iteration" && result=$? || result=$?
-
-        case $result in
-            0)
-                # All complete
-                log_success "══════════════════════════════════════════════════════════"
-                log_success "RALPH COMPLETE - All stories implemented!"
-                log_success "══════════════════════════════════════════════════════════"
-                exit 0
-                ;;
-            1)
-                # Iteration complete, continue
-                ;;
-            2)
-                # Error occurred
-                log_error "Stopping due to error in iteration $iteration"
-                exit 1
-                ;;
-        esac
-
-        # Check if all complete after this iteration
-        if check_all_complete "$prd_file"; then
+        if [[ $result -eq 0 ]]; then
             log_success "══════════════════════════════════════════════════════════"
             log_success "RALPH COMPLETE - All stories implemented!"
             log_success "══════════════════════════════════════════════════════════"
             exit 0
+        else
+            log_error "Orchestrator stopped with errors"
+            exit 1
         fi
+    else
+        # Sequential mode: iteration loop
+        local iteration=1
+        while [[ $iteration -le $MAX_ITERATIONS ]]; do
+            log_iteration "$iteration"
 
-        # Delay before next iteration
-        log_info "Waiting ${DELAY_SECONDS}s before next iteration..."
-        sleep "$DELAY_SECONDS"
+            local result
+            run_claude_sequential "$iteration" && result=$? || result=$?
 
-        ((iteration++))
-    done
+            case $result in
+                0)
+                    log_success "══════════════════════════════════════════════════════════"
+                    log_success "RALPH COMPLETE - All stories implemented!"
+                    log_success "══════════════════════════════════════════════════════════"
+                    exit 0
+                    ;;
+                1)
+                    ;;
+                2)
+                    log_error "Stopping due to error in iteration $iteration"
+                    exit 1
+                    ;;
+            esac
 
-    # Max iterations reached
-    log_warn "══════════════════════════════════════════════════════════"
-    log_warn "MAX ITERATIONS REACHED ($MAX_ITERATIONS)"
-    incomplete=$(get_incomplete_count "$prd_file")
-    log_warn "Stories remaining: $incomplete"
-    log_warn "══════════════════════════════════════════════════════════"
-    exit 1
+            if check_all_complete "$prd_file"; then
+                log_success "══════════════════════════════════════════════════════════"
+                log_success "RALPH COMPLETE - All stories implemented!"
+                log_success "══════════════════════════════════════════════════════════"
+                exit 0
+            fi
+
+            log_info "Waiting ${DELAY_SECONDS}s before next iteration..."
+            sleep "$DELAY_SECONDS"
+
+            ((iteration++))
+        done
+
+        log_warn "══════════════════════════════════════════════════════════"
+        log_warn "MAX ITERATIONS REACHED ($MAX_ITERATIONS)"
+        incomplete=$(get_incomplete_count "$prd_file")
+        log_warn "Stories remaining: $incomplete"
+        log_warn "══════════════════════════════════════════════════════════"
+        exit 1
+    fi
 }
 
-# Run main
 main "$@"
