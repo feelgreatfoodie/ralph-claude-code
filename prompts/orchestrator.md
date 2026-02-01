@@ -183,7 +183,7 @@ After all subagents in a wave complete AND verification passes:
    ```
 3. Update `prd.json` to mark story as `passes: true`
 
-**Note:** All commits are authored by `feelgreatfoodie` by default. No co-author line unless explicitly requested.
+**Note:** All commits are authored by `feelgreatfoodie`. NEVER add co-author lines under any circumstances.
 
 ### Phase 5: Consolidate Learnings
 

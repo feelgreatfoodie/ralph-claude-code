@@ -280,7 +280,7 @@ git commit --author="feelgreatfoodie <feelgreatfoodie@users.noreply.github.com>"
 - Implementation detail 2"
 ```
 
-**Note:** All commits are authored by `feelgreatfoodie` by default. No co-author line unless explicitly requested.
+**Note:** All commits are authored by `feelgreatfoodie`. NEVER add co-author lines under any circumstances.
 
 ### Step 9: Mark Story Complete
 

@@ -176,8 +176,9 @@ domains/[name]/
 
 ### Commits
 - Use conventional commits format
-- All commits authored by `feelgreatfoodie` (no co-author) unless explicitly told otherwise
+- All commits authored by `feelgreatfoodie` (NEVER add co-author)
 - Use `--author="feelgreatfoodie <feelgreatfoodie@users.noreply.github.com>"` flag
+- NEVER use `Co-Authored-By:` in commit messages
 
 ### File Naming
 - Scripts: `kebab-case.sh`
@@ -213,7 +214,7 @@ After modifying saas-blueprint:
 
 7. **Knowledge Capture** - Learnings must be captured and promoted to appropriate levels.
 
-8. **Commit Authorship** - ALL commits authored by `feelgreatfoodie`, NO co-author line, unless explicitly told otherwise.
+8. **Commit Authorship** - ALL commits authored by `feelgreatfoodie`. NEVER add co-author lines under any circumstances.
 
 ## Knowledge Accumulation System
 
@@ -308,4 +309,4 @@ cd test-project
 
 ---
 
-*Last updated: 2026-01-30*
+*Last updated: 2026-01-31*
